@@ -13,10 +13,13 @@ class UserSeeder extends Seeder
      */
     public function run(): void
     {
-        User::create([
-            'name' => 'admin',
-            'email' => 'tso_dev@unilab.com.ph',
-            'password' => bcrypt('w0rd10p@ss'),
-        ]);
+        User::updateOrCreate(
+            ['email' => 'tso_dev@unilab.com.ph'],
+            [
+                'name' => 'admin',
+                'password' => bcrypt('w0rd10p@ss'),
+                'is_admin' => true,
+            ]
+        );
     }
 }

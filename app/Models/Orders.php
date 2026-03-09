@@ -2,8 +2,7 @@
 
 namespace App\Models;
 
-use App\Provider\Payments;
-use App\Provider\Payment;
+
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use App\Models\OrderItems;
@@ -23,9 +22,17 @@ class Orders extends Model
         'payment_method',
         'payment_status',
         'total',
-        'status'
+        'status',
+        'is_scheduled',
+        'scheduled_for',
+        'schedule_slot',
     ];
 
+
+    protected $casts = [
+        'is_scheduled' => 'boolean',
+        'scheduled_for' => 'datetime',
+    ];
     public function items(){
         return $this->hasMany(OrderItems::class, 'order_id');
     }
@@ -33,4 +40,3 @@ class Orders extends Model
         return $this->belongsTo(User::class);
     }
 }
-

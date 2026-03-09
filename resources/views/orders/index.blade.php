@@ -1,13 +1,13 @@
 <x-app-layout>
     <div id="disableGlobalFlash" class="hidden"></div>
     <x-slot name="header">
-      <h2 class="text-2xl font-semibold text-green-800 tracking-wide">
+      <h2 class="text-lg sm:text-2xl font-semibold text-green-800 tracking-wide">
             My Orders
         </h2>
     </x-slot>
 
-    <div class="min-h-screen bg-gray-100 py-12">
-        <div class="max-w-6xl mx-auto px-6">
+    <div class="min-h-screen bg-gray-100 py-4 sm:py-12">
+        <div class="max-w-6xl mx-auto px-4 sm:px-6">
 
             {{-- SUCCESS MESSAGE --}}
             @if(session('success'))
@@ -16,27 +16,27 @@
                 </div>
             @endif
 
-            <div class="mb-6 bg-white p-5 rounded-2xl shadow-sm border border-gray-200">
+            <div class="mb-5 sm:mb-6 bg-white p-3 sm:p-5 rounded-2xl shadow-sm border border-gray-200">
 
-                    <form method="GET" action="{{ route('orders.index') }}" class="flex gap-3">
+                    <form method="GET" action="{{ route('orders.index') }}" class="flex flex-col sm:flex-row gap-3">
 
                         <input type="text"
                             name="search"
                             value="{{ request('search') }}"
                             placeholder="Search order number, name, or status..."
-                            class="flex-1 border border-gray-300 rounded-xl px-4 py-2 text-sm
+                            class="flex-1 border border-gray-300 rounded-xl px-3 sm:px-4 py-2 text-xs sm:text-sm
                                     focus:ring-2 focus:ring-gray-900 focus:outline-none">
 
                         <button type="submit"
-                                class="px-5 py-2 bg-green-600 text-white rounded-xl
+                                class="w-full sm:w-auto px-4 sm:px-5 py-2 text-sm bg-green-600 text-white rounded-xl
                                     hover:bg-green-800 transition">
                             Search
                         </button>
 
                         @if(request('search'))
                             <a href="{{ route('orders.index') }}"
-                            class="px-4 py-2 border border-gray-300 rounded-xl text-sm
-                                    hover:bg-gray-100 transition">
+                            class="w-full sm:w-auto px-4 py-2 border border-gray-300 rounded-xl text-xs sm:text-sm
+                                    hover:bg-gray-100 transition text-center">
                                 Reset
                             </a>
                         @endif
@@ -84,30 +84,30 @@
                         : 'bg-green-500';
                 @endphp
 
-                <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition duration-300">
+                <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-3 sm:p-6 hover:shadow-md transition duration-300">
 
                     {{-- TOP ROW --}}
-                    <div class="flex justify-between items-start flex-wrap gap-4">
+                    <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start  gap-4">
 
                         {{-- LEFT --}}
                         <div>
-                            <h3 class="text-lg font-semibold text-gray-900">
+                            <h3 class="text-sm sm:text-lg font-semibold text-gray-900 break-all sm:break-normal">
                                 Order #{{ $order->order_number }}
                             </h3>
 
-                            <p class="text-sm text-gray-500 mt-1">
+                            <p class="text-xs sm:text-sm text-gray-500 mt-1">
                                 {{ $order->created_at->format('M d, Y • h:i A') }}
                             </p>
 
-                            <p class="mt-3 text-sm text-gray-600">
+                            <p class="mt-2 sm:mt-3 text-xs sm:text-sm text-gray-600">
                                 {{ $order->items->count() }} items
                             </p>
                         </div>
 
                         {{-- RIGHT --}}
-                        <div class="text-right">
-                            <p class="text-sm text-gray-500">Total</p>
-                            <p class="text-xl font-semibold text-gray-900">
+                        <div class="text-left sm:text-right">
+                            <p class="text-xs sm:text-sm text-gray-500">Total</p>
+                            <p class="text-lg sm:text-xl font-semibold text-gray-900">
                                 ₱{{ number_format($order->total,2) }}
                             </p>
                         </div>
@@ -124,26 +124,26 @@
                     </div>
 
                     {{-- BADGES ROW --}}
-                    <div class="mt-5 flex justify-between items-center flex-wrap gap-3">
+                    <div class="mt-5 flex flex-col items-stretch sm:flex-row sm:justify-between sm:items-center gap-3">
 
-                        <div class="flex gap-3">
+                        <div class="flex flex-wrap gap-2 sm:gap-3">
 
-                            <span class="px-3 py-1 text-xs font-medium rounded-full {{ $statusColor }}">
+                            <span class="px-3 py-1 text-[11px] sm:text-xs font-medium rounded-full {{ $statusColor }}">
                                 {{ ucfirst(str_replace('_',' ', $normalizedStatus)) }}
                             </span>
 
-                            <span class="px-3 py-1 text-xs font-medium rounded-full {{ $paymentColor }}">
+                            <span class="px-3 py-1 text-[11px] sm:text-xs font-medium rounded-full {{ $paymentColor }}">
                                 {{ ucfirst($order->payment_status) }}
                             </span>
 
-                            <span class="px-3 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-700">
+                            <span class="px-3 py-1 text-[11px] sm:text-xs font-medium rounded-full bg-gray-100 text-gray-700">
                                 {{ ucfirst($order->payment_method) }}
                             </span>
 
                         </div>
 
                         <a href="{{ route('orders.show', $order->id) }}"
-                           class="px-4 py-2 text-sm font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-800 transition">
+                           class="w-full sm:w-auto text-center px-4 py-2 text-xs sm:text-sm font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-800 transition">
                             View Details
                         </a>
 
@@ -162,7 +162,7 @@
                     
             </div>
 
-           <div class="mt-10 bg-white p-4 rounded-2xl shadow-sm border border-green-8"> {{ $orders->links() }} </div>
+           <div class="mt-10"> {{ $orders->links('vendor.pagination.custom') }} </div>
 
         </div>
 

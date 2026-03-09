@@ -7,16 +7,16 @@
 
     <div class="min-h-screen bg-white py-12 px-4">
 
-        <div class="max-w-5xl mx-auto space-y-8">
+        <div class="max-w-5xl mx-auto space-y-4 sm:space-y-8">
 
             {{-- SUCCESS MESSAGE --}}
-            @if(session('success'))
-                <div class="p-4 rounded-2xl bg-green-500/20 backdrop-blur-lg 
+            {{-- @if(session('success'))
+                <div class="p-3 sm:p-4 rounded-2xl bg-green-500/20 backdrop-blur-lg 
                             border border-green-400 text-green-100 
                             shadow-lg animate-fade-in">
                     {{ session('success') }}
                 </div>
-            @endif
+            @endif --}}
 
 
             {{-- ===================== --}}
@@ -26,7 +26,7 @@
                         p-8 border border-white/40 transition-all 
                         duration-500 hover:shadow-green-400/40">
 
-                <h3 class="text-lg font-semibold text-gray-700 mb-6">
+                <h3 class="text-md font-semibold text-gray-700 mb-6">
                     Add New Category
                 </h3>
 
@@ -39,7 +39,7 @@
                            name="name"
                            value="{{ old('name') }}"
                            placeholder="Enter category name..."
-                           class="flex-1 px-5 py-3 rounded-xl border border-gray-300
+                           class="flex-1 px-3 py-2 sm:px-4 sm:py-3 rounded-xl border border-gray-300
                                   focus:ring-2 focus:ring-green-500 
                                   focus:border-green-500 outline-none 
                                   transition-all duration-300 shadow-sm 
@@ -47,7 +47,7 @@
                            required>
 
                     <button type="submit"
-                            class="px-6 py-3 rounded-xl text-white font-semibold
+                            class="px-4 py-2 sm:px-6 sm:py-3 rounded-xl text-white font-semibold
                                    bg-gradient-to-r from-green-600 to-emerald-500
                                    hover:from-green-700 hover:to-emerald-600
                                    shadow-lg hover:shadow-green-300

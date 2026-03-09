@@ -17,7 +17,7 @@
 
                     {{-- SEARCH --}}
                     <div class="flex-1">
-                        <label class="text-xs text-gray-500 uppercase tracking-wide">
+                        <label class=" px-3 py-2 text-xs text-gray-500 uppercase tracking-wide">
                             Search
                         </label>
                         <input type="text"
@@ -27,38 +27,34 @@
                                class="mt-1 w-full border border-gray-300 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 focus:outline-none transition-all duration-300 shadow-sm hover:shadow-md">
                     </div>
 
-                    {{-- DATE FROM --}}
-                    <div>
+                    <div class="flex justify-center gap-2">
                         <label class="text-xs text-gray-500 uppercase tracking-wide">
-                            From
+                         
                         </label>
                         <input type="date"
                                name="date_from"
                                value="{{ request('date_from') }}"
-                               class="mt-1 border border-gray-300 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-300 shadow-sm hover:shadow-md">
-                    </div>
-
-                    {{-- DATE TO --}}
-                    <div>
-                        <label class="text-xs text-gray-500 uppercase tracking-wide">
+                               class="mt-1 border border-gray-300 rounded-xl px-1 py-1 sm:px-4 sm:py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-300 shadow-sm hover:shadow-md">
+                 
+                        <label class="mt-1 mx-auto text-xs text-gray-500 uppercase tracking-wide ">
                             To
                         </label>
                         <input type="date"
                                name="date_to"
                                value="{{ request('date_to') }}"
-                               class="mt-1 border border-gray-300 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-300 shadow-sm hover:shadow-md">
+                               class="mt-1 border border-gray-300 rounded-xl px-1 py-1 sm:px-4 sm:py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-300 shadow-sm hover:shadow-md">
                     </div>
 
                     {{-- BUTTONS --}}
-                    <div class="flex gap-3">
+                    <div class="flex justify-center gap-3">
 
                         <button type="submit"
-                                class="px-5 py-2 bg-gradient-to-r from-green-600 to-emerald-500 text-white text-sm rounded-xl shadow-lg hover:from-green-700 hover:to-emerald-600 hover:shadow-green-300 transition-all duration-300 transform hover:-translate-y-1 hover:scale-105">
+                                class="px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-500 text-white text-sm rounded-xl shadow-lg hover:from-green-700 hover:to-emerald-600 hover:shadow-green-300 transition-all duration-300 transform hover:-translate-y-1 hover:scale-105">
                             Apply
                         </button>
 
                         <a href="{{ route('admin.orders.export.pdf', request()->query()) }}"
-                           class="px-5 py-2 bg-indigo-600 text-white text-sm rounded-xl shadow hover:bg-indigo-700 hover:scale-105 transition-all duration-300">
+                           class="px-3 py-2 bg-indigo-600 text-white text-sm rounded-xl shadow hover:bg-indigo-700 hover:scale-105 transition-all duration-300">
                             Export PDF
                         </a>
 
@@ -80,11 +76,11 @@
                 ];
             @endphp
 
-            <div class="flex gap-3 flex-wrap">
+            <div class="flex gap-3 flex-wrap items-center justify-center">
 
                 @foreach($tabs as $key => $label)
                     <a href="{{ route('admin.orders', array_merge(request()->query(), ['status' => $key ?: null])) }}"
-                       class="px-4 py-2 text-xs rounded-full transition-all duration-300
+                       class="px-4 py-2 text-xs  rounded-full transition-all duration-300
                        {{ ($current === $key)
                            ? 'bg-green-600 text-white shadow'
                            : 'bg-white border border-gray-200 text-gray-600 hover:bg-green-50' }}">
@@ -112,7 +108,7 @@
 
             @else
 
-                <div class="bg-white/90 backdrop-blur-lg rounded-3xl shadow-2xl border border-white/40 overflow-hidden divide-y">
+                <div class=" bg-white/90 backdrop-blur-lg rounded-3xl shadow-2xl border border-white/40 overflow-hidden divide-y">
 
                     @foreach($orders as $order)
 
@@ -219,9 +215,7 @@
 
 
             {{-- PAGINATION --}}
-            <div class="mt-8">
-                {{ $orders->links() }}
-            </div>
+             <div class="mt-10 bg-white p-3 sm:p-4 rounded-2xl  overflow-x-auto"> {{ $orders->links('vendor.pagination.custom') }} </div>
 
         </div>
     </div>

@@ -1,4 +1,4 @@
-@if($latestOrder && in_array($latestOrder->status, ['cooking','ready']))
+@if($latestOrder && in_array($latestOrder->status, ['preparing','out_of_delivery','delivered']))
     <div class="relative ml-4">
         <a href="{{ route('orders.track', $latestOrder->order_number) }}"
            class="text-white text-xl relative">

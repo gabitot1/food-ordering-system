@@ -57,12 +57,19 @@ class CartController extends Controller
         }
 
         $request->validate([
-            'status' => 'required|in:pending,preparing,delivered,cancelled',
+            'status' => 'required|in:pending,preparing,out_of_delivery,delivered,cancelled',
+            'payment_status' => 'nullable|in:unpaid,paid,refunded',
         ]);
 
-        $order->update([
+        $updateData = [
             'status' => $request->status,
-        ]);
+        ];
+
+        if ($request->filled('payment_status')) {
+            $updateData['payment_status'] = $request->payment_status;
+        }
+
+        $order->update($updateData);
 
         return back()->with('success', 'Order Updated');
     }

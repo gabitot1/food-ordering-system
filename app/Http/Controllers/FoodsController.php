@@ -37,13 +37,13 @@ class FoodsController extends Controller
         if($request->filled('availability')){
             if($request->availability === 'available'){
                 $query->where('is_available', 1);
-            }elseif($request->availabiliy === 'unavailable'){
+            }elseif($request->availability === 'unavailable'){
                 $query->where('is_available',0);
             }
         }
 
         $this->adminOnly();
-        $foods = Foods::latest()->paginate(10)->withQueryString();
+        $foods = $query->latest()->paginate(10)->withQueryString();
         return view('admin.foods.index', compact('foods'));
     }
     public function create()

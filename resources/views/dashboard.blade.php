@@ -1,15 +1,20 @@
 <x-app-layout>
 
-    <x-slot name="header">
+    <x-slot  name="header">
         <h2 class="text-3xl font-bold text-gray-800 tracking-tight">
             Menu
         </h2>
+        <style>
+            html{
+                scroll-behavior: smooth;
+            }
+        </style>
     </x-slot>
 
-    <div class="max-w-7xl mx-auto py-12 px-4">
+    <div id="menu" class="max-w-7xl mx-auto py-8 sm:py-12 px-4 sm:px-6">
 
         {{-- CATEGORY FILTER --}}
-        <div class="flex flex-wrap gap-3 mb-10">
+        <div class="flex gap-3 mb-8 overflow-x-auto pb-2 scrollbar-hide">
             <a href="{{ route('home') }}"
                class="px-5 py-2 rounded-full text-sm font-medium transition
                {{ request('category') ? 'bg-gray-200 text-gray-700' : 'bg-green-600 text-white shadow-lg' }}">
@@ -35,7 +40,7 @@
         @else
 
         {{-- FOOD GRID --}}
-        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-10">
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 sm:gap-8">
 
             @foreach($foods as $food)
                 <div class="group bg-white rounded-3xl shadow-md hover:shadow-2xl transition duration-500 overflow-hidden">
@@ -51,7 +56,7 @@
                         @endif
                     </div>
 
-                    <div class="p-6">
+                    <div class="p-2 sm:p-6">
                         <h3 class="font-semibold text-lg text-gray-800 group-hover:text-green-600 transition">
                             {{ $food->name }}
                         </h3>
@@ -85,7 +90,7 @@
                                 <input type="hidden" name="quantity" value="1">
 
                                 <button type="submit"
-                                        class="cartBtn bg-green-600 text-white px-4 py-2 rounded-xl hover:bg-green-700 transition shadow-md">
+                                        class="cartBtn bg-green-600 text-white px-4 py-2 rounded-xl text-sm sm:text-base hover:bg-green-700 transition shadow-md">
                                     Add
                                 </button>
 
@@ -109,8 +114,7 @@
          class="fixed inset-0 bg-black/50 hidden items-center justify-center z-[10000] opacity-0 transition">
 
         <div id="foodModalBox"
-             class="bg-white w-full max-w-lg rounded-2xl shadow-2xl p-6 relative z-[10001]
-                    transform scale-95 translate-y-10 opacity-0 transition-all duration-300">
+             class="bg-white w-full max-w-lg max-h-[93vh] sm:-[85%] md:w-full max-w-sm sm:max-w-md md:max-w-lg max-h-[85vh] overflow-y-auto rounded-2xl shadow-2xl p-5 sm:p-6 transform scale-95 translate-y-10 opacity-0 transition-all duration-300">
 
             <button onclick="closeFoodModal()"
                     class="absolute top-4 right-4 text-gray-500 hover:text-black text-xl">
@@ -135,9 +139,9 @@
             <div class="flex justify-between items-center mb-4">
                 <span class="font-semibold">Quantity</span>
                 <div class="flex items-center gap-3">
-                    <button type="button" onclick="changeQty(-1)" class="bg-gray-200 px-3 py-1 rounded">-</button>
+                    <button type="button" onclick="changeQty(-1)" class="bg-gray-200 px-4 py-2 rounded text-lg ">-</button>
                     <span id="foodQty">1</span>
-                    <button type="button" onclick="changeQty(1)" class="bg-gray-200 px-3 py-1 rounded">+</button>
+                    <button type="button" onclick="changeQty(1)" class="bg-gray-200 px-4 py-2 rounded text-lg">+</button>
                 </div>
             </div>
 
@@ -172,8 +176,8 @@
             opacity-0 pointer-events-none
             transition-all duration-300 z-[11000]">
 
-    <div class="bg-white px-8 py-6 rounded-2xl shadow-2xl
-                flex flex-col items-center gap-3
+    <div class="bg-white px-6 py-5 sm:py-6 rounded-2xl shadow-2xl
+                w-[90%] sm:w-auto sm:max-w-md flex flex-col items-center gap-3
                 transform scale-95 transition-all duration-300">
 
         <div class="text-3xl">🛒</div>
@@ -197,7 +201,8 @@
             </p>
         </div>
     </div>
-
+    <a href="#menu" class="fixed bottom-6 right-6 bg-green-600 text-white p-4  rounded-full shadow-lg hover:bg-green-700 transition">↑</a>
+    {{-- <section id="menu"> --}}
 </x-app-layout>
 <script>
 let basePrice = 0;
@@ -297,12 +302,20 @@ document.addEventListener('submit', function(e){
         .catch(()=>{
             overlay.classList.add('hidden');
             if (window.Swal) {
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Request failed',
-                    text: 'Something went wrong.',
-                    confirmButtonColor: '#16a34a'
-                });
+                const options = (typeof getSwalBaseOptions === 'function')
+                    ? getSwalBaseOptions({
+                        icon: 'error',
+                        title: 'Request failed',
+                        text: 'Something went wrong.',
+                        confirmButtonColor: '#16a34a'
+                    })
+                    : {
+                        icon: 'error',
+                        title: 'Request failed',
+                        text: 'Something went wrong.',
+                        confirmButtonColor: '#16a34a'
+                    };
+                Swal.fire(options);
             }
         })
         .finally(() => {

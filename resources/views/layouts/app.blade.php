@@ -50,6 +50,45 @@
         @keyframes spin {
             to { transform: rotate(360deg); }
         }
+
+        .swal2-popup.swal-mobile-popup {
+            width: min(22rem, calc(100vw - 1.8rem));
+            padding: 0.85rem;
+            border-radius: 0.85rem;
+        }
+
+        .swal2-title.swal-mobile-title {
+            font-size: 0.95rem;
+            line-height: 1.35;
+        }
+
+        .swal2-html-container.swal-mobile-text {
+            font-size: 0.8rem;
+            line-height: 1.45;
+            margin-top: 0.45rem;
+        }
+
+        .swal2-actions.swal-mobile-actions {
+            gap: 0.5rem;
+            margin-top: 0.9rem;
+        }
+
+        .swal2-confirm.swal-mobile-button,
+        .swal2-cancel.swal-mobile-button {
+            font-size: 0.75rem;
+            padding: 0.45rem 0.8rem;
+            border-radius: 0.65rem;
+        }
+
+        @media (min-width: 640px) {
+            .swal2-popup.swal-mobile-popup {
+                padding: 1rem;
+            }
+
+            .swal2-title.swal-mobile-title {
+                font-size: 1rem;
+            }
+        }
     </style>
 </head>
 
@@ -108,6 +147,24 @@
 
 {{-- ✅ SCRIPT MUST BE INSIDE BODY --}}
 <script>
+function getSwalBaseOptions(extra = {}) {
+    const isSmallScreen = window.matchMedia('(max-width: 640px)').matches;
+
+    return {
+        width: isSmallScreen ? 'calc(100vw - 1.25rem)' : '24rem',
+        padding: isSmallScreen ? '0.9rem' : '1rem',
+        customClass: {
+            popup: 'swal-mobile-popup',
+            title: 'swal-mobile-title',
+            htmlContainer: 'swal-mobile-text',
+            actions: 'swal-mobile-actions',
+            confirmButton: 'swal-mobile-button',
+            cancelButton: 'swal-mobile-button',
+        },
+        ...extra,
+    };
+}
+
 if (!window.__globalCartSubmitBound) {
 window.__globalCartSubmitBound = true;
 
@@ -188,12 +245,12 @@ document.addEventListener('submit', function(e) {
                 loading.classList.add('hidden');
             }
             if (window.Swal) {
-                Swal.fire({
+                Swal.fire(getSwalBaseOptions({
                     icon: 'error',
                     title: 'Request failed',
                     text: 'Something went wrong.',
                     confirmButtonColor: '#16a34a'
-                });
+                }));
             }
         })
         .finally(() => {
@@ -204,68 +261,147 @@ document.addEventListener('submit', function(e) {
 }
 </script>
 <script>
-window.addEventListener('DOMContentLoaded', function () {
+if (!window.__orderStatusMonitor) {
+    window.__orderStatusMonitor = {
+        started: false,
+        pollTimer: null,
+        inFlight: false,
+        lastStatuses: {},
+        notificationCount: 0,
+        audioUnlocked: false,
+        audio: null,
+    };
+}
 
-    let lastStatuses = {};
-    let notificationCount = 0;
+function startOrderStatusMonitor() {
+    const monitor = window.__orderStatusMonitor;
+    const notificationWrapper = document.getElementById('notificationWrapper');
+
+    if (!notificationWrapper) {
+        clearTimeout(monitor.pollTimer);
+        monitor.pollTimer = null;
+        monitor.inFlight = false;
+        return;
+    }
+
+    const statusColorMap = {
+        pending: 'text-yellow-600',
+        preparing: 'text-blue-600',
+        out_of_delivery: 'text-purple-600',
+        delivered: 'text-green-600',
+        completed: 'text-green-600',
+        cancelled: 'text-red-600',
+    };
+
+    if (!monitor.audio) {
+        monitor.audio = new Audio('/notification.mp3');
+        monitor.audio.preload = 'auto';
+        monitor.audio.volume = 1;
+    }
+
+    function unlockAudio() {
+        if (monitor.audioUnlocked || !monitor.audio) return;
+
+        monitor.audio.muted = true;
+        monitor.audio.play()
+            .then(() => {
+                monitor.audio.pause();
+                monitor.audio.currentTime = 0;
+                monitor.audio.muted = false;
+                monitor.audioUnlocked = true;
+            })
+            .catch(() => {});
+    }
+
+    if (!monitor.started) {
+        monitor.started = true;
+        document.addEventListener('click', unlockAudio, { passive: true });
+        document.addEventListener('touchstart', unlockAudio, { passive: true });
+        document.addEventListener('keydown', unlockAudio, { passive: true });
+    }
 
     function playSound() {
-        let audio = new Audio("/notification.mp3");
-        audio.volume = 1;
-        audio.play().catch(() => {});
+        if (!monitor.audio) return;
+
+        monitor.audio.currentTime = 0;
+        monitor.audio.play().catch(() => {});
     }
 
     function showBadge() {
-        let badge = document.getElementById('notifBadge');
-        let count = document.getElementById('notifCount');
+        const badge = document.getElementById('notifBadge');
+        const count = document.getElementById('notifCount');
 
-        if(badge && count){
-            notificationCount++;
+        if (badge && count) {
+            monitor.notificationCount++;
             badge.classList.remove('hidden');
-            count.innerText = notificationCount;
+            badge.classList.add('inline-flex');
+            count.innerText = monitor.notificationCount;
         }
     }
 
-    // Load initial state
-    fetch("{{ route('check.order.status') }}")
-    .then(res => res.json())
-    .then(data => {
-        data.forEach(order => {
-            lastStatuses[order.id] = order.status;
-        });
-    });
+    function updateNotificationRow(order) {
+        const statusNode = document.querySelector('[data-order-status="' + order.id + '"]');
 
-    // Check every 3 seconds (faster for testing)
-    setInterval(function(){
+        if (!statusNode) return;
 
-        fetch("{{ route('check.order.status') }}")
-        .then(res => res.json())
-        .then(data => {
+        statusNode.className = 'text-[11px] sm:text-xs ' + (statusColorMap[order.status] || 'text-gray-600');
+        statusNode.textContent = order.status_label;
+    }
 
-            data.forEach(order => {
+    async function pollStatuses() {
+        if (monitor.inFlight || document.visibilityState === 'hidden') {
+            scheduleNextPoll();
+            return;
+        }
 
-                if(lastStatuses[order.id] !== undefined &&
-                   lastStatuses[order.id] != order.status){
+        monitor.inFlight = true;
 
-                    console.log("Detected change:",
-                        lastStatuses[order.id],
-                        "→",
-                        order.status
-                    );
-
-                    playSound();
-                    showBadge();
-
-                    lastStatuses[order.id] = order.status;
-                }
-
+        try {
+            const res = await fetch("{{ route('check.order.status') }}", {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json',
+                },
+                cache: 'no-store',
             });
 
-        });
+            if (!res.ok) {
+                throw new Error('Polling failed with status ' + res.status);
+            }
 
-    }, 3000);
+            const data = await res.json();
 
-});
+            data.forEach(order => {
+                const previousStatus = monitor.lastStatuses[order.id];
+
+                if (previousStatus !== undefined && previousStatus !== order.status) {
+                    playSound();
+                    showBadge();
+                    updateNotificationRow(order);
+                }
+
+                monitor.lastStatuses[order.id] = order.status;
+            });
+        } catch (error) {
+            console.error('Order status polling error:', error);
+        } finally {
+            monitor.inFlight = false;
+            scheduleNextPoll();
+        }
+    }
+
+    function scheduleNextPoll() {
+        clearTimeout(monitor.pollTimer);
+        monitor.pollTimer = setTimeout(pollStatuses, 10000);
+    }
+
+    if (!monitor.pollTimer) {
+        pollStatuses();
+    }
+}
+
+document.addEventListener('DOMContentLoaded', startOrderStatusMonitor);
+document.addEventListener('turbo:load', startOrderStatusMonitor);
 </script>
 <script>
 function showGlobalFlashAlert() {
@@ -290,88 +426,99 @@ function showGlobalFlashAlert() {
     const firstValidationError = flash.validation || null;
 
     if (flashSuccess) {
-        Swal.fire({
+        Swal.fire(getSwalBaseOptions({
             icon: 'success',
             title: 'Success',
             text: flashSuccess,
             confirmButtonColor: '#16a34a'
-        });
+        }));
         return;
     }
 
     if (flashError) {
-        Swal.fire({
+        Swal.fire(getSwalBaseOptions({
             icon: 'error',
             title: 'Error',
             text: flashError,
             confirmButtonColor: '#dc2626'
-        });
+        }));
         return;
     }
 
     if (flashStatus) {
-        Swal.fire({
+        Swal.fire(getSwalBaseOptions({
             icon: 'info',
             title: 'Notice',
             text: flashStatus,
             confirmButtonColor: '#16a34a'
-        });
+        }));
         return;
     }
 
     if (firstValidationError) {
-        Swal.fire({
+        Swal.fire(getSwalBaseOptions({
             icon: 'warning',
             title: 'Validation error',
             text: firstValidationError,
             confirmButtonColor: '#f59e0b'
-        });
+        }));
     }
 }
 
-document.addEventListener('DOMContentLoaded', showGlobalFlashAlert);
-document.addEventListener('turbo:load', showGlobalFlashAlert);
-document.addEventListener('turbo:before-cache', function () {
-    const flashNode = document.getElementById('server-flash');
-    if (flashNode) flashNode.remove();
-    if (window.Swal) Swal.close();
-});
+if (!window.__globalFlashHandlersBound) {
+    window.__globalFlashHandlersBound = true;
+    document.addEventListener('DOMContentLoaded', showGlobalFlashAlert);
+    document.addEventListener('turbo:load', showGlobalFlashAlert);
+    document.addEventListener('turbo:before-cache', function () {
+        const flashNode = document.getElementById('server-flash');
+        if (flashNode) flashNode.remove();
+
+        document.querySelectorAll('form[data-swal-confirm]').forEach((form) => {
+            delete form.dataset.swalConfirmed;
+        });
+
+        if (window.Swal) Swal.close();
+    });
+}
 </script>
 <script>
-document.addEventListener('submit', function (e) {
-    const form = e.target;
-    if (!(form instanceof HTMLFormElement)) return;
-    if (!form.hasAttribute('data-swal-confirm')) return;
-    if (form.dataset.swalConfirmed === '1') return;
+if (!window.__swalConfirmBound) {
+    window.__swalConfirmBound = true;
+    document.addEventListener('submit', function (e) {
+        const form = e.target;
+        if (!(form instanceof HTMLFormElement)) return;
+        if (!form.hasAttribute('data-swal-confirm')) return;
+        if (form.dataset.swalConfirmed === '1') return;
 
-    e.preventDefault();
-    if (!window.Swal) {
-        form.submit();
-        return;
-    }
-
-    const title = form.getAttribute('data-swal-title') || 'Are you sure?';
-    const text = form.getAttribute('data-swal-text') || 'This action cannot be undone.';
-    const confirmText = form.getAttribute('data-swal-confirm-text') || 'Yes, continue';
-    const cancelText = form.getAttribute('data-swal-cancel-text') || 'Cancel';
-    const icon = form.getAttribute('data-swal-icon') || 'warning';
-
-    Swal.fire({
-        title,
-        text,
-        icon,
-        showCancelButton: true,
-        confirmButtonText: confirmText,
-        cancelButtonText: cancelText,
-        confirmButtonColor: '#dc2626',
-        cancelButtonColor: '#64748b',
-    }).then((result) => {
-        if (result.isConfirmed) {
-            form.dataset.swalConfirmed = '1';
-            form.submit();
+        e.preventDefault();
+        if (!window.Swal) {
+            HTMLFormElement.prototype.submit.call(form);
+            return;
         }
+
+        const title = form.getAttribute('data-swal-title') || 'Are you sure?';
+        const text = form.getAttribute('data-swal-text') || 'This action cannot be undone.';
+        const confirmText = form.getAttribute('data-swal-confirm-text') || 'Yes, continue';
+        const cancelText = form.getAttribute('data-swal-cancel-text') || 'Cancel';
+        const icon = form.getAttribute('data-swal-icon') || 'warning';
+
+        Swal.fire(getSwalBaseOptions({
+            title,
+            text,
+            icon,
+            showCancelButton: true,
+            confirmButtonText: confirmText,
+            cancelButtonText: cancelText,
+            confirmButtonColor: '#dc2626',
+            cancelButtonColor: '#64748b',
+        })).then((result) => {
+            if (result.isConfirmed) {
+                form.dataset.swalConfirmed = '1';
+                HTMLFormElement.prototype.submit.call(form);
+            }
+        });
     });
-});
+}
 </script>
 </body>
 

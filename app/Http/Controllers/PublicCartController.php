@@ -6,10 +6,29 @@ use Illuminate\Http\Request;
 use App\Models\Foods;
 use App\Models\OrderItems;
 use App\Models\Orders;
+use App\Models\User;
+use App\Mail\AdminNewOrderMail;
+use App\Mail\OrderReceiptMail;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Carbon\Carbon;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Schema;
 
 class PublicCartController extends Controller
 {
+    private function sessionOrderIds(): array
+    {
+        return session()->get('my_orders', []);
+    }
+
+    private function ensureSessionOwnsOrderId(int $orderId): void
+    {
+        if (!in_array($orderId, $this->sessionOrderIds(), true)) {
+            abort(403);
+        }
+    }
+
     // SHOW CART
     public function index()
     {
@@ -37,9 +56,14 @@ class PublicCartController extends Controller
         $request->validate([
             'customer_name' => 'required',
             'address' => 'required',
+            'email' => 'required|email',
             'contact_number' => 'required',
             'delivery_option' => 'required',
             'payment_method' => 'required',
+            'is_scheduled' => 'nullable|boolean',
+            'scheduled_date' => 'nullable|date|after_or_equal:today',
+            'scheduled_for' => 'nullable|date|after_or_equal:today',
+            'schedule_slot' => 'required_if:is_scheduled,1|in:09:00-11:00,11:00-13:00,13:00-15:00,15:00-17:00',
         ]);
 
         $cart = session()->get('cart', []);
@@ -54,7 +78,43 @@ class PublicCartController extends Controller
             $total += $item['price'] * $item['quantity'];
         }
 
-        $order = Orders::create([
+        $customerEmail = $request->email;
+
+        $isScheduled = $request->boolean('is_scheduled');
+        $scheduledFor = null;
+        $scheduleSlot = null;
+
+        if ($isScheduled) {
+            $scheduleDate = $request->input('scheduled_date');
+            if (empty($scheduleDate) && $request->filled('scheduled_for')) {
+                $scheduleDate = Carbon::parse($request->input('scheduled_for'))->toDateString();
+            }
+
+            if (empty($scheduleDate)) {
+                return back()
+                    ->withInput()
+                    ->withErrors(['scheduled_date' => 'The schedule date field is required when scheduled is enabled.']);
+            }
+
+            $scheduleSlot = $request->schedule_slot;
+            [$startTime] = explode('-', $scheduleSlot);
+            $scheduledFor = Carbon::parse($scheduleDate . ' ' . $startTime);
+
+            $slotCount = Orders::query()
+                ->where('is_scheduled', true)
+                ->whereDate('scheduled_for', $scheduleDate)
+                ->where('schedule_slot', $scheduleSlot)
+                ->where('status', '!=', 'cancelled')
+                ->count();
+
+            if ($slotCount >= 10) {
+                return back()
+                    ->withInput()
+                    ->withErrors(['schedule_slot' => 'Selected schedule slot is already full.']);
+            }
+        }
+
+        $orderData = [
             'order_number' => 'ORD-' . now()->format('YmdHis') . rand(10, 99),
             'customer_name' => $request->customer_name,
             'address' => $request->address,
@@ -66,7 +126,16 @@ class PublicCartController extends Controller
             'status' => 'pending',
             'instruction' => $request->instruction,
             'payment_status' => $request->payment_method === 'cash' ? 'unpaid' : 'paid',
-        ]);
+            'is_scheduled' => $isScheduled,
+            'scheduled_for' => $scheduledFor,
+            'schedule_slot' => $scheduleSlot,
+        ];
+
+        if (Schema::hasColumn('orders', 'email')) {
+            $orderData['email'] = $customerEmail;
+        }
+
+        $order = Orders::create($orderData);
 
         foreach ($cart as $id => $item) {
             OrderItems::create([
@@ -83,9 +152,53 @@ class PublicCartController extends Controller
         $orders[] = $order->id;
         session()->put('my_orders', $orders);
 
+        $order->load('items.food');
+
+        try {
+            Mail::to($customerEmail)->send(new OrderReceiptMail($order));
+
+            $adminRecipients = collect();
+
+            if (config('mail.admin_address')) {
+                $adminRecipients->push(config('mail.admin_address'));
+            }
+
+            $adminRecipients = $adminRecipients
+                ->merge(
+                    User::query()
+                        ->where('is_admin', 1)
+                        ->whereNotNull('email')
+                        ->pluck('email')
+                )
+                ->filter()
+                ->unique()
+                ->values();
+
+            foreach ($adminRecipients as $adminEmail) {
+                Mail::to($adminEmail)->send(new AdminNewOrderMail($order));
+            }
+        } catch (\Throwable $e) {
+            Log::error('Checkout email sending failed.', [
+                'order_id' => $order->id,
+                'order_number' => $order->order_number,
+                'message' => $e->getMessage(),
+            ]);
+        }
+
         session()->forget('cart');
 
-        return redirect()->route('orders.track', $order->order_number);
+        if ($request->ajax()) {
+            return response()->json([
+                'success' => true,
+                'order_id' => $order->id,
+                'order_number' => $order->order_number,
+                'track_url' => route('orders.track', $order->order_number),
+            ]);
+        }
+
+        return redirect()
+            ->route('orders.track', $order->order_number)
+            ->with('success', 'Order placed successfully! Order #' . $order->order_number);
     }
 
     public function track($order_number)
@@ -97,6 +210,8 @@ class PublicCartController extends Controller
         if (!$order) {
             return 'Order not found: ' . $order_number;
         }
+
+        $this->ensureSessionOwnsOrderId($order->id);
 
         return view('orders.track', compact('order'));
     }
@@ -137,10 +252,13 @@ class PublicCartController extends Controller
             'order_number' => 'required',
         ]);
 
-        $order = Orders::where('order_number', $request->order_number)->first();
+        $orderIds = $this->sessionOrderIds();
+        $order = Orders::whereIn('id', $orderIds)
+            ->where('order_number', $request->order_number)
+            ->first();
 
         if (!$order) {
-            return back()->with('error', 'Orders not found');
+            return back()->with('error', 'Order not found in your history.');
         }
 
         return redirect()->route('orders.track', $order->order_number);
@@ -175,11 +293,7 @@ class PublicCartController extends Controller
 
     public function show($id)
     {
-        $orderIds = session()->get('my_orders', []);
-
-        if (!in_array($id, $orderIds)) {
-            abort(403);
-        }
+        $this->ensureSessionOwnsOrderId((int) $id);
 
         $order = Orders::with('items.food')->findOrFail($id);
 
@@ -188,6 +302,8 @@ class PublicCartController extends Controller
 
     public function cancelOrder(Orders $order)
     {
+        $this->ensureSessionOwnsOrderId($order->id);
+
         if ($order->status !== 'pending') {
             return back()->with('error', 'Only pending orders can be cancelled.');
         }
@@ -201,6 +317,8 @@ class PublicCartController extends Controller
 
     public function receipt($id)
     {
+        $this->ensureSessionOwnsOrderId((int) $id);
+
         $order = Orders::with('items.food')->findOrFail($id);
         $pdf = Pdf::loadView('orders.receipt', compact('order'));
 
@@ -209,6 +327,8 @@ class PublicCartController extends Controller
 
     public function downloadReceipt($id)
     {
+        $this->ensureSessionOwnsOrderId((int) $id);
+
         $order = Orders::with('items.food')->findOrFail($id);
 
         $pdf = Pdf::loadView('orders.recept-pdf', compact('order'));
@@ -218,6 +338,8 @@ class PublicCartController extends Controller
 
     public function receiptModal(Orders $order)
     {
+        $this->ensureSessionOwnsOrderId($order->id);
+
         $order->load('items.food');
 
         return view('orders.receipt-modal', compact('order'));

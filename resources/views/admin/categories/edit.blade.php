@@ -13,7 +13,7 @@
 
             <!-- Title -->
             <div class="mb-8 text-center">
-                <h3 class="text-xl font-semibold text-gray-700">
+                <h3 class="text-md sm:text-xl font-semibold text-gray-700">
                     Update Category Details
                 </h3>
                 <p class="text-sm text-gray-500 mt-1">
@@ -23,7 +23,7 @@
 
             <form method="POST" 
                   action="{{ route('admin.categories.update', $category->id) }}"
-                  class="space-y-6">
+                  class="space-y-4 sm:space-y-6">
 
                 @csrf
                 @method('PATCH')
@@ -38,7 +38,7 @@
                            name="name"
                            value="{{ $category->name }}"
                            required
-                           class="w-full px-4 py-3 rounded-xl border border-gray-300 
+                           class="w-full px-3 py-2 sm:px-4 sm:py-3 rounded-xl border border-gray-300 
                                   focus:ring-2 focus:ring-green-500 
                                   focus:border-green-500 
                                   outline-none transition-all duration-300
@@ -49,12 +49,12 @@
                 <div class="flex justify-between items-center pt-4">
 
                     <a href="{{ route('admin.categories.index') }}"
-                       class="text-gray-500 hover:text-gray-700 transition">
+                       class="text-sm text-gray-500 hover:text-gray-700 transition">
                         ← Cancel
                     </a>
 
                     <button type="submit"
-                            class="px-6 py-3 rounded-xl text-white font-semibold
+                            class="px-4 py-2 sm:px-6 sm:py-3 rounded-xl text-white font-semibold
                                    bg-gradient-to-r from-green-600 to-emerald-500
                                    hover:from-green-700 hover:to-emerald-600
                                    shadow-lg hover:shadow-green-300

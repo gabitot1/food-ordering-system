@@ -28,8 +28,8 @@
                     </a>
                 </div>
             </div>
-              <div class="mt-8 flex justify-center">
-            {{ $orders->links() }}
+            <div class="mt-8 flex justify-center">
+            {{ $orders->links('vendor.pagination.custom') }}
         </div>
         @endforeach
        

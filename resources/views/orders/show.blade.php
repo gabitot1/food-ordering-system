@@ -63,7 +63,7 @@
                         <div class="absolute top-5 left-0 h-1 bg-green-600 rounded transition-all duration-500"
                              style="width: {{ ($currentStep - 1) * 33.33 }}%"></div>
 
-                        <div class="grid grid-cols-2 md:grid-cols-4 gap-6 relative">
+                        <div class="grid grid-cols-4 md:grid-cols-4 gap-6 relative">
                             @foreach($steps as $key => $value)
                                 <div class="text-center">
                                     <div class="mx-auto w-10 h-10 flex items-center justify-center rounded-full text-sm font-semibold
@@ -140,7 +140,7 @@
                     </div>
                 </div>
 
-                <div class="mt-8 flex flex-wrap items-center gap-3">
+                <div class="mt-8 flex flex-col sm:items-center gap-3">
                     <button onclick="openReceipt({{ $order->id }})"
                             class="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition">
                         View Receipt
@@ -156,16 +156,17 @@
                               data-swal-cancel-text="Keep order"
                               data-swal-icon="warning">
                             @csrf
-                            <button class="px-4 py-2 bg-red-600 text-white text-sm rounded-lg hover:bg-red-700 transition">
+                            <button class="w-full sm:w-auto px-4 py-2 sm:items-center bg-red-600 text-white text-sm rounded-lg hover:bg-red-700 transition">
                                 Cancel Order
                             </button>
                         </form>
                     @endif
 
                     <a href="{{ route('orders.index') }}"
-                       class="px-4 py-2 bg-gray-900 text-white text-sm rounded-lg hover:bg-black transition">
+                       class="w-full sm:w-auto px-4 py-2 bg-gray-900 sm:items-center  text-white text-sm rounded-lg hover:bg-black text-center transition">
                         Back to Orders
                     </a>
+                    
                 </div>
             </div>
         </div>

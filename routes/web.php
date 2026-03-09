@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AdminSheduleController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\FoodsController;
@@ -85,8 +86,7 @@ Route::get('/navbar-notification', function(){
                         ->first();
     }
 
-    return view('orders.partials.navbar-notification',
-                compact('latestOrder'));
+    return view('orders.partials.navbar-notification', compact('latestOrder'));
 
 })->name('navbar.notification');
 Route::get('/check-order-status', function(){
@@ -98,7 +98,25 @@ Route::get('/check-order-status', function(){
     if(!empty($orderIds)){
         $orders = \App\Models\Orders::whereIn('id', $orderIds)
                     ->latest()
-                    ->get(['id','status']);
+                    ->get(['id', 'order_number', 'status'])
+                    ->map(function ($order) {
+                        $labels = [
+                            'pending' => 'Pending',
+                            'preparing' => 'Preparing',
+                            'out_of_delivery' => 'Out of Delivery',
+                            'delivered' => 'Delivered',
+                            'completed' => 'Completed',
+                            'cancelled' => 'Cancelled',
+                        ];
+
+                        return [
+                            'id' => $order->id,
+                            'order_number' => $order->order_number,
+                            'status' => $order->status,
+                            'status_label' => $labels[$order->status] ?? ucfirst(str_replace('_', ' ', $order->status)),
+                        ];
+                    })
+                    ->values();
     }
 
     return response()->json($orders);
@@ -162,6 +180,69 @@ Route::middleware(['auth'])->group(function () {
 
     Route::get('/admin/orders/export/pdf', [CartController::class, 'exportOrdersPdf'])
         ->name('admin.orders.export.pdf');
+
+    //schedule
+    Route::get('/admin/schedule', [AdminSheduleController::class, 'index'])->name('admin.schedule');
+
+    Route::get('/admin/notifications', function () {
+        if (auth()->user()?->is_admin != 1) {
+            abort(403);
+        }
+
+        $lastSeenAt = session('admin_notif_seen_at');
+        if (empty($lastSeenAt)) {
+            $lastSeenAt = now()->toDateTimeString();
+            session(['admin_notif_seen_at' => $lastSeenAt]);
+        }
+
+        $baseQuery = \App\Models\Orders::query();
+
+        $unreadCount = (clone $baseQuery)
+            ->where('created_at', '>', $lastSeenAt)
+            ->count();
+
+        $notifications = (clone $baseQuery)
+            ->latest()
+            ->limit(12)
+            ->get([
+                'id',
+                'order_number',
+                'customer_name',
+                'status',
+                'is_scheduled',
+                'scheduled_for',
+                'schedule_slot',
+                'created_at',
+            ])
+            ->map(function ($order) {
+                return [
+                    'id' => $order->id,
+                    'order_number' => $order->order_number,
+                    'customer_name' => $order->customer_name,
+                    'status' => $order->status,
+                    'is_scheduled' => (bool) $order->is_scheduled,
+                    'schedule_slot' => $order->schedule_slot,
+                    'scheduled_for' => optional($order->scheduled_for)->format('Y-m-d H:i:s'),
+                    'created_at' => optional($order->created_at)->format('Y-m-d H:i:s'),
+                ];
+            })
+            ->values();
+
+        return response()->json([
+            'unread_count' => $unreadCount,
+            'notifications' => $notifications,
+        ]);
+    })->name('admin.notifications');
+
+    Route::post('/admin/notifications/mark-read', function () {
+        if (auth()->user()?->is_admin != 1) {
+            abort(403);
+        }
+
+        session(['admin_notif_seen_at' => now()->toDateTimeString()]);
+
+        return response()->json(['ok' => true]);
+    })->name('admin.notifications.mark-read');
 
 });
 

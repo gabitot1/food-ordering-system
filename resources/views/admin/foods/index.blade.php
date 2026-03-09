@@ -9,11 +9,11 @@
         <div class="max-w-7xl mx-auto space-y-8">
 
             {{-- SUCCESS MESSAGE --}}
-            @if (session('success'))
+            {{-- @if (session('success'))
                 <div class="p-4 rounded-2xl bg-green-500/20 backdrop-blur-lg border border-green-400 text-green-100 shadow-lg animate-fade-in">
                     {{ session('success') }}
                 </div>
-            @endif
+            @endif --}}
 
             {{-- FILTER --}}
             <div class="bg-white/80 backdrop-blur-lg rounded-3xl shadow-2xl p-6 border border-white/40 transition-all duration-500 hover:shadow-green-400/40">
@@ -169,9 +169,7 @@
                     </table>
                 </div>
 
-                <div class="mt-6">
-                    {{ $foods->links() }}
-                </div>
+                 <div class="mt-10"> {{ $foods->links('vendor.pagination.custom') }} </div>
 
             </div>
         </div>

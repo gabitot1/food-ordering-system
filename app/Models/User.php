@@ -24,6 +24,7 @@ class User extends Authenticatable
         'password',
         'phone',
         'role',
+        'is_admin',
     ];
         public function cart(){
             return $this->hasOne(Cart::class);
