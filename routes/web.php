@@ -8,7 +8,7 @@ use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\CartController;
 use App\Http\Controllers\PublicCartController;
 use App\Http\Controllers\ProfileController;
-
+use Inertia\Inertia;
 /*
 |--------------------------------------------------------------------------
 | Public Routes
@@ -16,9 +16,12 @@ use App\Http\Controllers\ProfileController;
 */
 
 Route::get('/', [HomeController::class, 'index'])->name('home');
-Route::view('/landing', 'landing')->name('landing');
-
-Route::get('/dashboard', [HomeController::class, 'index'])->name('dashboard');
+Route::get('/landing', function () {
+    return Inertia::render('Landing');
+})->name('landing');
+Route::get('/menu', [HomeController::class, 'index'])->name('menu');
+Route::get('/foods', [FoodsController::class, 'index'])->name('foods.index');
+// Route::get('/dashboard', [HomeController::class, 'index'])->name('dashboard');
 
 
 // ---------------- CART ----------------
@@ -37,6 +40,12 @@ Route::post('/cart/increase/{id}', [PublicCartController::class, 'increase'])
 
 Route::post('/cart/decrease/{id}', [PublicCartController::class, 'decrease'])
     ->name('cart.decrease');
+
+Route::post('/cart/quantity/{id}', [PublicCartController::class, 'updateQuantity'])
+    ->name('cart.quantity.update');
+
+Route::post('/cart/instruction/{id}', [PublicCartController::class, 'updateInstruction'])
+    ->name('cart.instruction.update');
 
 
 // ---------------- CHECKOUT ----------------
@@ -86,7 +95,13 @@ Route::get('/navbar-notification', function(){
                         ->first();
     }
 
-    return view('orders.partials.navbar-notification', compact('latestOrder'));
+    return response()->json([
+        'latest_order' => $latestOrder ? [
+            'id' => $latestOrder->id,
+            'order_number' => $latestOrder->order_number,
+            'status' => $latestOrder->status,
+        ] : null,
+    ]);
 
 })->name('navbar.notification');
 Route::get('/check-order-status', function(){
@@ -98,7 +113,7 @@ Route::get('/check-order-status', function(){
     if(!empty($orderIds)){
         $orders = \App\Models\Orders::whereIn('id', $orderIds)
                     ->latest()
-                    ->get(['id', 'order_number', 'status'])
+                    ->get(['id', 'order_number', 'status', 'approval_status'])
                     ->map(function ($order) {
                         $labels = [
                             'pending' => 'Pending',
@@ -113,7 +128,12 @@ Route::get('/check-order-status', function(){
                             'id' => $order->id,
                             'order_number' => $order->order_number,
                             'status' => $order->status,
-                            'status_label' => $labels[$order->status] ?? ucfirst(str_replace('_', ' ', $order->status)),
+                            'approval_status' => $order->approval_status ?? 'pending',
+                            'status_label' => match ($order->approval_status ?? 'pending') {
+                                'pending' => 'Awaiting approval',
+                                'disapproved' => 'Disapproved',
+                                default => $labels[$order->status] ?? ucfirst(str_replace('_', ' ', $order->status)),
+                            },
                         ];
                     })
                     ->values();
@@ -129,6 +149,9 @@ Route::get('/check-order-status', function(){
 */
 
 Route::middleware(['auth'])->group(function () {
+    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
+    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
+    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 
     Route::get('/admin/dashboard', [CartController::class, 'adminDashboard'])
         ->name('admin.dashboard');
@@ -154,6 +177,9 @@ Route::middleware(['auth'])->group(function () {
 
     Route::patch('/admin/foods/{food}/toggle', [FoodsController::class, 'toggleAvailability'])
         ->name('admin.foods.toggle');
+
+    Route::patch('/admin/foods/{food}/approval', [FoodsController::class, 'updateApproval'])
+        ->name('admin.foods.approval.update');
 
     // Admin Categories
     Route::get('/admin/categories', [CategoryController::class, 'index'])
@@ -183,27 +209,21 @@ Route::middleware(['auth'])->group(function () {
 
     //schedule
     Route::get('/admin/schedule', [AdminSheduleController::class, 'index'])->name('admin.schedule');
+    Route::post('/admin/schedule/controls', [AdminSheduleController::class, 'updateControls'])->name('admin.schedule.controls.update');
 
     Route::get('/admin/notifications', function () {
         if (auth()->user()?->is_admin != 1) {
             abort(403);
         }
 
-        $lastSeenAt = session('admin_notif_seen_at');
-        if (empty($lastSeenAt)) {
-            $lastSeenAt = now()->toDateTimeString();
-            session(['admin_notif_seen_at' => $lastSeenAt]);
-        }
-
         $baseQuery = \App\Models\Orders::query();
+        $lowStockQuery = \App\Models\Foods::query()
+            ->whereNotNull('available_quantity')
+            ->whereBetween('available_quantity', [1, 5])
+            ->where('approval_status', 'approved');
 
-        $unreadCount = (clone $baseQuery)
-            ->where('created_at', '>', $lastSeenAt)
-            ->count();
-
-        $notifications = (clone $baseQuery)
-            ->latest()
-            ->limit(12)
+        $orderNotifications = (clone $baseQuery)
+            ->orderByDesc(\DB::raw('GREATEST(UNIX_TIMESTAMP(created_at), UNIX_TIMESTAMP(updated_at))'))
             ->get([
                 'id',
                 'order_number',
@@ -213,20 +233,70 @@ Route::middleware(['auth'])->group(function () {
                 'scheduled_for',
                 'schedule_slot',
                 'created_at',
+                'updated_at',
             ])
             ->map(function ($order) {
+                $type = $order->status === 'cancelled'
+                    ? 'cancelled'
+                    : ($order->is_scheduled ? 'scheduled' : 'new');
+
                 return [
                     'id' => $order->id,
                     'order_number' => $order->order_number,
                     'customer_name' => $order->customer_name,
                     'status' => $order->status,
+                    'type' => $type,
                     'is_scheduled' => (bool) $order->is_scheduled,
                     'schedule_slot' => $order->schedule_slot,
                     'scheduled_for' => optional($order->scheduled_for)->format('Y-m-d H:i:s'),
                     'created_at' => optional($order->created_at)->format('Y-m-d H:i:s'),
+                    'updated_at' => optional($order->updated_at)->format('Y-m-d H:i:s'),
                 ];
             })
             ->values();
+
+        $lowStockNotifications = (clone $lowStockQuery)
+            ->orderByDesc('updated_at')
+            ->get([
+                'id',
+                'name',
+                'available_quantity',
+                'updated_at',
+            ])
+            ->map(function ($food) {
+                return [
+                    'id' => 'food-' . $food->id,
+                    'food_id' => $food->id,
+                    'food_name' => $food->name,
+                    'available_quantity' => (int) $food->available_quantity,
+                    'type' => 'low_stock',
+                    'created_at' => optional($food->updated_at)->format('Y-m-d H:i:s'),
+                    'updated_at' => optional($food->updated_at)->format('Y-m-d H:i:s'),
+                ];
+            })
+            ->values();
+
+        $notifications = $orderNotifications
+            ->concat($lowStockNotifications)
+            ->sortByDesc(function ($item) {
+                return strtotime($item['updated_at'] ?? $item['created_at'] ?? now()->toDateTimeString());
+            })
+            ->take(5)
+            ->values();
+
+        $lastSeenAt = session('admin_notif_seen_at');
+
+        $unreadCount = $notifications
+            ->filter(function ($item) use ($lastSeenAt) {
+                if (!$lastSeenAt) {
+                    return true;
+                }
+
+                $itemTime = $item['updated_at'] ?? $item['created_at'] ?? null;
+
+                return $itemTime && strtotime($itemTime) > strtotime($lastSeenAt);
+            })
+            ->count();
 
         return response()->json([
             'unread_count' => $unreadCount,

@@ -33,7 +33,7 @@ class AppServiceProvider extends ServiceProvider
             $navOrders = Orders::query()
                 ->whereIn('id', $orderIds)
                 ->latest()
-                ->get(['id', 'order_number', 'status']);
+                ->get(['id', 'order_number', 'status', 'approval_status']);
 
             $view->with('navOrders', $navOrders);
         });

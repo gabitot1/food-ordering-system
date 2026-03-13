@@ -167,14 +167,22 @@
 
                             <p data-order-status="{{ $order->id }}"
                                class="text-[11px] sm:text-xs 
-                                    @if($order->status == 'pending') text-yellow-600
+                                    @if(($order->approval_status ?? 'pending') == 'pending') text-amber-600
+                                    @elseif(($order->approval_status ?? 'pending') == 'disapproved') text-red-600
+                                    @elseif($order->status == 'pending') text-yellow-600
                                     @elseif($order->status == 'preparing') text-blue-600
                                     @elseif($order->status == 'out_of_delivery') text-purple-600
                                     @elseif($order->status == 'delivered' || $order->status == 'completed') text-green-600
                                     @elseif($order->status == 'cancelled') text-red-600
                                     @else text-gray-600
                                     @endif">
-                                {{ ucfirst(str_replace('_', ' ', $order->status)) }}
+                                @if(($order->approval_status ?? 'pending') === 'pending')
+                                    Awaiting approval
+                                @elseif(($order->approval_status ?? 'pending') === 'disapproved')
+                                    Disapproved
+                                @else
+                                    {{ ucfirst(str_replace('_', ' ', $order->status)) }}
+                                @endif
                             </p>
 
                             <a href="{{ route('orders.track', $order->order_number) }}"

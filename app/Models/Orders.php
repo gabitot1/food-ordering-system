@@ -16,6 +16,7 @@ class Orders extends Model
         'customer_name',
         'address',
         'department',
+        'id_number',
         'email',
         'contact_number',
         'delivery_option',
@@ -23,6 +24,10 @@ class Orders extends Model
         'payment_status',
         'total',
         'status',
+        'approval_status',
+        'approved_by',
+        'approved_at',
+        'approval_note',
         'is_scheduled',
         'scheduled_for',
         'schedule_slot',
@@ -32,11 +37,15 @@ class Orders extends Model
     protected $casts = [
         'is_scheduled' => 'boolean',
         'scheduled_for' => 'datetime',
+        'approved_at' => 'datetime',
     ];
     public function items(){
         return $this->hasMany(OrderItems::class, 'order_id');
     }
     public function user(){
         return $this->belongsTo(User::class);
+    }
+    public function approver(){
+        return $this->belongsTo(User::class, 'approved_by');
     }
 }

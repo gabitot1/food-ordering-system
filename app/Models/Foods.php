@@ -13,8 +13,21 @@ class Foods extends Model
         'name', 
         'description',
         'price',
+        'available_quantity',
         'image',
         'is_available',
+        'approval_status',
+        'approved_by',
+        'approved_at',
+        'rejection_reason',
+    ];
+
+    protected $casts = [
+        'price' => 'decimal:2',
+        'available_quantity' => 'integer',
+        'is_available' => 'boolean',
+        'approved_by' => 'integer',
+        'approved_at' => 'datetime',
     ];
 
 
@@ -23,5 +36,10 @@ class Foods extends Model
     }
     public function orderItems(){
         return $this->hasMany(orderItems::class);
+    }
+
+    public function approver()
+    {
+        return $this->belongsTo(User::class, 'approved_by');
     }
 }
